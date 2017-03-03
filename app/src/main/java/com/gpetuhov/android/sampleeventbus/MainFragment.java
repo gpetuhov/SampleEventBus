@@ -1,5 +1,6 @@
 package com.gpetuhov.android.sampleeventbus;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
@@ -11,6 +12,7 @@ import android.widget.TextView;
 
 import com.gpetuhov.android.sampleeventbus.events.CalculationErrorEvent;
 import com.gpetuhov.android.sampleeventbus.events.CalculationFinishedEvent;
+import com.gpetuhov.android.sampleeventbus.events.ShowResultInSeparateActiivtyEvent;
 import com.gpetuhov.android.sampleeventbus.events.StartCalculationEvent;
 
 import org.greenrobot.eventbus.EventBus;
@@ -27,8 +29,8 @@ public class MainFragment extends Fragment {
     // Start calculations button
     @BindView(R.id.button_start) Button mStartButton;
 
-    // Result text
-    @BindView(R.id.result) TextView mResult;
+    // Displays result on screen
+    @BindView(R.id.result) TextView mResultTextView;
 
     // Show in a separate activity button
     @BindView(R.id.button_show) Button mShowButton;
@@ -37,6 +39,9 @@ public class MainFragment extends Fragment {
     private Unbinder mUnbinder;
 
     private Calculator mCalculator;
+
+    // Keeps result of the calculation
+    private String mResult = "";
 
     @Override
     public void onStart() {
@@ -86,26 +91,45 @@ public class MainFragment extends Fragment {
         // Post new StartCalculationEvent to EventBus
         EventBus.getDefault().post(new StartCalculationEvent());
 
-        mResult.setText("Calculating...");
+        mResultTextView.setText("Calculating...");
     }
 
     // Called when show button is clicked
     @OnClick(R.id.button_show)
     public void showResultInNewActivity() {
+        // Post result to EventBus as STICKY event.
+        // This is needed, because at this moment second activity is not started
+        // and can't receive events.
+        // Second activity (second fragment) will be able
+        // to get sticky event from EventBus after start.
+        EventBus.getDefault().postSticky(new ShowResultInSeparateActiivtyEvent(mResult));
 
+        // Create explicit intent to start activity.
+        // No need to add result as intent extra,
+        // because we deliver result to second activity (second fragment) via EventBus.
+        Intent intent = new Intent(getActivity(), SecondActivity.class);
+
+        // Start second activity
+        startActivity(intent);
     }
 
     // Called when a CalculationFinishedEvent is posted (in the UI thread)
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onCalculationFinishedEvent(CalculationFinishedEvent calculationFinishedEvent) {
-        // Get result from the event and display it in TextView
-        mResult.setText(calculationFinishedEvent.getResult());
+        // Get result from the event
+        mResult = calculationFinishedEvent.getResult();
+
+        // Display result in TextView
+        mResultTextView.setText(mResult);
     }
 
     // Called when a CalculationErrorEvent is posted (in the UI thread)
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onCalculationErrorEvent(CalculationErrorEvent calculationErrorEvent) {
-        // Get error message from the event and display it in TextView
-        mResult.setText(calculationErrorEvent.getErrorMessage());
+        // Get error message from the event
+        mResult = calculationErrorEvent.getErrorMessage();
+
+        // Display error in TextView
+        mResultTextView.setText(mResult);
     }
 }
